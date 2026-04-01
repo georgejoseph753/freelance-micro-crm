@@ -19,6 +19,7 @@ const ProjectManager = ({ token }) => {
   // Fetch both Projects and Clients when the page loads
   useEffect(() => {
     fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchData = async () => {
@@ -92,6 +93,37 @@ const ProjectManager = ({ token }) => {
       } catch (error) {
         setMessage("Error deleting project.");
       }
+    }
+  };
+
+  // DOWNLOAD PDF: Fetch the blob and trigger browser download
+  const handleDownloadInvoice = async (id, title) => {
+    try {
+      setMessage("Generating invoice..."); // Quick UI feedback
+      const response = await axios.get(
+        `http://localhost:5000/api/projects/${id}/invoice`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          responseType: "blob", // CRITICAL: Tells React to expect a file, not JSON
+        },
+      );
+
+      // Create a temporary hidden link to download the file
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute(
+        "download",
+        `Invoice_${title.replace(/\s+/g, "_")}.pdf`,
+      );
+      document.body.appendChild(link);
+      link.click(); // Force the download
+      link.parentNode.removeChild(link); // Clean up
+
+      setMessage("Invoice downloaded successfully!");
+    } catch (error) {
+      console.error("Download error:", error);
+      setMessage("Error generating invoice. Ensure project is complete.");
     }
   };
 
@@ -236,6 +268,18 @@ const ProjectManager = ({ token }) => {
                 >
                   Delete
                 </button>
+
+                {/* Conditional Rendering: Only show if status is 'Completed' */}
+                {project.status === "Completed" && (
+                  <button
+                    onClick={() =>
+                      handleDownloadInvoice(project.id, project.title)
+                    }
+                    style={styles.invoiceBtn}
+                  >
+                    Download Invoice
+                  </button>
+                )}
               </td>
             </tr>
           ))}
@@ -312,6 +356,15 @@ const styles = {
     padding: "5px 10px",
     cursor: "pointer",
     borderRadius: "3px",
+  },
+  invoiceBtn: {
+    backgroundColor: "#17a2b8",
+    color: "white",
+    border: "none",
+    padding: "5px 10px",
+    cursor: "pointer",
+    borderRadius: "3px",
+    marginLeft: "5px",
   },
 };
 

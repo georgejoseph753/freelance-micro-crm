@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
+const PdfPrinter = require("pdfmake");
 const { Pool } = require("pg");
 require("dotenv").config();
 
@@ -252,7 +253,131 @@ app.delete("/api/projects/:id", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error deleting project." });
   }
 });
+// Generate PDF Invoice for a Project
+app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
+  try {
+    // 1. Fetch project AND client data using a SQL JOIN
+    const projectQuery = await pool.query(
+      `SELECT p.*, c.first_name, c.last_name, c.company_name, c.billing_address, c.email
+             FROM projects p
+             JOIN clients c ON p.client_id = c.id
+             WHERE p.id = $1 AND c.user_id = $2`,
+      [req.params.id, req.user.id],
+    );
 
+    if (projectQuery.rows.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "Project not found or unauthorized." });
+    }
+
+    const project = projectQuery.rows[0];
+
+    // 2. Configure the PDF Printer using standard web fonts
+    const fonts = {
+      Helvetica: {
+        normal: "Helvetica",
+        bold: "Helvetica-Bold",
+        italics: "Helvetica-Oblique",
+        bolditalics: "Helvetica-BoldOblique",
+      },
+    };
+    const printer = new PdfPrinter(fonts);
+
+    // 3. Design the Invoice Layout (The "Document Definition")
+    const docDefinition = {
+      defaultStyle: { font: "Helvetica" },
+      content: [
+        {
+          text: "INVOICE",
+          fontSize: 28,
+          bold: true,
+          alignment: "right",
+          margin: [0, 0, 0, 20],
+        },
+        {
+          text: "From: Freelancer Micro-CRM",
+          color: "gray",
+          margin: [0, 0, 0, 30],
+        },
+        {
+          columns: [
+            {
+              width: "50%",
+              text: [
+                { text: "Billed To:\n", bold: true, fontSize: 14 },
+                `${project.first_name} ${project.last_name}\n`,
+                `${project.company_name || ""}\n`,
+                `${project.billing_address || "No address provided"}\n`,
+                `${project.email}`,
+              ],
+            },
+            {
+              width: "50%",
+              alignment: "right",
+              text: [
+                {
+                  text: `Invoice Number: INV-${project.id}00${project.id}\n`,
+                  bold: true,
+                },
+                { text: `Date: ${new Date().toLocaleDateString()}\n` },
+                {
+                  text: `Project Status: ${project.status}\n`,
+                  color: project.status === "Completed" ? "green" : "black",
+                },
+              ],
+            },
+          ],
+        },
+        {
+          text: "Services Rendered",
+          fontSize: 16,
+          bold: true,
+          margin: [0, 40, 0, 10],
+        },
+        {
+          table: {
+            headerRows: 1,
+            widths: ["*", "auto"],
+            body: [
+              [
+                { text: "Description", bold: true, fillColor: "#f8f9fa" },
+                { text: "Amount", bold: true, fillColor: "#f8f9fa" },
+              ],
+              [
+                project.title,
+                `$${parseFloat(project.total_amount).toFixed(2)}`,
+              ],
+            ],
+          },
+          layout: "lightHorizontalLines",
+        },
+        {
+          text: `Total Due: $${parseFloat(project.total_amount).toFixed(2)}`,
+          fontSize: 18,
+          bold: true,
+          alignment: "right",
+          margin: [0, 30, 0, 0],
+        },
+      ],
+    };
+
+    // 4. Generate the PDF and stream it to the user's browser
+    const pdfDoc = printer.createPdfKitDocument(docDefinition);
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="Invoice_${project.title.replace(/\s+/g, "_")}.pdf"`,
+    );
+
+    pdfDoc.pipe(res);
+    pdfDoc.end();
+  } catch (err) {
+    console.error("PDF Error:", err.message);
+    res.status(500).json({ error: "Server error while generating PDF." });
+  }
+});
 // ==========================================
 // 6. START SERVER
 // ==========================================
