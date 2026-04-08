@@ -1,7 +1,11 @@
+import { useNavigate } from "react-router-dom";
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
 const Dashboard = ({ token }) => {
+  // 1. Initialize the navigate function
+  const navigate = useNavigate();
+
   const [stats, setStats] = useState({
     totalClients: 0,
     activeProjects: 0,
@@ -23,7 +27,7 @@ const Dashboard = ({ token }) => {
         const projectsRes = await axios.get(
           "http://localhost:5000/api/projects",
           apiConfig,
-        ); // We will build this backend route next!
+        );
 
         const clients = clientsRes.data;
         const projects = projectsRes.data;
@@ -68,34 +72,45 @@ const Dashboard = ({ token }) => {
 
       <div style={styles.grid}>
         {/* Metric Card 1: Clients */}
-        <div style={styles.card}>
+        <div
+          onClick={() => navigate("/clients")}
+          style={{ ...styles.card, cursor: "pointer" }}
+        >
           <h3 style={styles.cardTitle}>Total Clients</h3>
           <p style={styles.cardNumber}>{stats.totalClients}</p>
         </div>
 
         {/* Metric Card 2: Active Projects */}
-        <div style={styles.card}>
+        <div
+          onClick={() => navigate("/projects")}
+          style={{ ...styles.card, cursor: "pointer" }}
+        >
           <h3 style={styles.cardTitle}>Active Projects</h3>
           <p style={styles.cardNumber}>{stats.activeProjects}</p>
         </div>
 
         {/* Metric Card 3: Completed Projects */}
-        <div style={styles.card}>
+        <div
+          onClick={() => navigate("/projects")}
+          style={{ ...styles.card, cursor: "pointer" }}
+        >
           <h3 style={styles.cardTitle}>Completed Projects</h3>
           <p style={styles.cardNumber}>{stats.completedProjects}</p>
         </div>
 
-        {/* Metric Card 4: Revenue */}
-        <div style={styles.card}>
+        {/* Metric Card 4: Revenue (Also goes to projects, updated to Euro) */}
+        <div
+          onClick={() => navigate("/projects")}
+          style={{ ...styles.card, cursor: "pointer" }}
+        >
           <h3 style={styles.cardTitle}>Total Revenue</h3>
-          <p style={styles.cardNumber}>${stats.totalRevenue}</p>
+          <p style={styles.cardNumber}>€{stats.totalRevenue}</p>
         </div>
       </div>
     </div>
   );
 };
 
-// Professional Styling for Portfolio Screenshots
 const styles = {
   container: {
     padding: "30px",
@@ -123,6 +138,8 @@ const styles = {
     boxShadow: "0 4px 6px rgba(0,0,0,0.1)",
     borderLeft: "5px solid #007bff",
     textAlign: "center",
+
+    transition: "transform 0.2s ease, box-shadow 0.2s ease",
   },
   cardTitle: {
     margin: "0 0 10px 0",

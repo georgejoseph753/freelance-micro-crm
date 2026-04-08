@@ -3,7 +3,7 @@ import axios from "axios";
 
 const ProjectManager = ({ token }) => {
   const [projects, setProjects] = useState([]);
-  const [clients, setClients] = useState([]); // Needed for the dropdown menu
+  const [clients, setClients] = useState([]);
   const [formData, setFormData] = useState({
     client_id: "",
     title: "",
@@ -96,7 +96,7 @@ const ProjectManager = ({ token }) => {
     }
   };
 
-  // DOWNLOAD PDF: Fetch the blob and trigger browser download
+  // DOWNLOAD PDF INVOICE
   const handleDownloadInvoice = async (id, title) => {
     try {
       setMessage("Generating invoice..."); // Quick UI feedback
@@ -185,7 +185,7 @@ const ProjectManager = ({ token }) => {
             type="number"
             step="0.01"
             name="total_amount"
-            placeholder="Total Amount ($)"
+            placeholder="Total Amount (€)"
             value={formData.total_amount}
             onChange={handleInputChange}
             style={styles.input}
@@ -254,7 +254,7 @@ const ProjectManager = ({ token }) => {
                   ? new Date(project.deadline).toLocaleDateString()
                   : "N/A"}
               </td>
-              <td style={styles.td}>${project.total_amount}</td>
+              <td style={styles.td}>€{project.total_amount}</td>
               <td style={styles.td}>
                 <button
                   onClick={() => handleEdit(project)}

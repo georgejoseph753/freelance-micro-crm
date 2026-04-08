@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 
 const ClientManager = ({ token }) => {
@@ -19,28 +19,28 @@ const ClientManager = ({ token }) => {
     headers: { Authorization: `Bearer ${token}` },
   };
 
-  // READ: Fetch clients when the component loads
-  useEffect(() => {
-    fetchClients();
-  }, []);
-
-  const fetchClients = async () => {
+  // 1. Single declaration of fetchClients wrapped in useCallback
+  const fetchClients = useCallback(async () => {
     try {
-      const response = await axios.get(
-        "http://localhost:5000/api/clients",
-        apiConfig,
-      );
+      const response = await axios.get("http://localhost:5000/api/clients", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setClients(response.data);
     } catch (error) {
       console.error("Error fetching clients:", error);
     }
-  };
+  }, [token]); // token is the dependency for useCallback
+
+  // 2. Single useEffect to trigger the fetch on load
+  useEffect(() => {
+    fetchClients();
+  }, [fetchClients]);
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // CREATE & UPDATE: Handle form submission
+  // CREATE & UPDATE: Handle form submission for both creating and updating clients
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
@@ -164,7 +164,14 @@ const ClientManager = ({ token }) => {
             type="button"
             onClick={() => {
               setEditingId(null);
-              setFormData({});
+              setFormData({
+                first_name: "",
+                last_name: "",
+                email: "",
+                company_name: "",
+                billing_address: "",
+                notes: "",
+              });
             }}
             style={styles.cancelButton}
           >
@@ -213,7 +220,6 @@ const ClientManager = ({ token }) => {
   );
 };
 
-// Basic styling to keep it clean for the portfolio screenshots
 const styles = {
   container: {
     padding: "20px",
