@@ -6,6 +6,7 @@ import {
   Navigate,
   Link,
 } from "react-router-dom";
+import Register from "./components/Register";
 import Login from "./components/Login";
 import Dashboard from "./components/Dashboard";
 import ClientManager from "./components/ClientManager";
@@ -50,12 +51,16 @@ function App() {
 
         <div style={{ padding: "20px" }}>
           <Routes>
-            {/* Public Route: Login */}
+            {/* Public Routes */}
             <Route
               path="/login"
               element={
                 !token ? <Login setToken={setToken} /> : <Navigate to="/" />
               }
+            />
+            <Route
+              path="/register"
+              element={!token ? <Register /> : <Navigate to="/" />}
             />
 
             {/* Protected Routes: Only accessible if 'token' exists */}
