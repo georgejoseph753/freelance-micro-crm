@@ -1,46 +1,30 @@
 # The Freelancer's Micro-CRM
 
-A lightweight, cloud-hosted Customer Relationship Management (CRM) system designed specifically for solo freelancers to streamline client management, monitor project lifecycles, and generate automated PDF invoices.
+A lightweight, cloud-hosted Customer Relationship Management (CRM) system designed specifically for solo freelancers to streamline client management and automated invoicing.
 
 ## 🚀 Overview
-Digital transformation often leaves solo practitioners with bloated, expensive tools. This project provides a hyper-focused, Dockerized full-stack solution. It strictly enforces multi-tenant security, tracking leads and generating professional PDF invoices with a single click in a clean UI.
+Digital transformation often leaves solo practitioners with bloated, expensive tools. This project provides a hyper-focused solution for tracking leads, managing active projects, and generating professional PDF invoices with a single click.
 
 ## ✨ Key Features
-- **Secure Authentication:** User registration and login protected by JSON Web Tokens (JWT) and bcrypt password hashing. Middleware strictly validates database presence preventing ghost-token usage.
-- **Client Management:** Full CRUD operations for client profiles (billing info, private notes) completely segregated by user.
-- **Project Tracking:** Attach projects directly to clients and seamlessly slide lifecycle statuses from 'Lead', to 'Active', down to 'Completed'.
-- **Automated Invoicing:** Highly scalable one-click PDF invoice synthesis powered by pdfmake. 
-- **Dockerized Ready:** Single-command local deployment with reverse proxy via NGINX mapping seamlessly to the internal Node.js backend.
+- [cite_start]**Secure Authentication:** User registration and login with bcrypt password hashing[cite: 1183, 1190].
+- [cite_start]**Client Management:** Full CRUD operations for client profiles including billing details[cite: 1184].
+- [cite_start]**Project Tracking:** Monitor project lifecycles from 'Lead' to 'Completed'[cite: 1185].
+- [cite_start]**Automated Invoicing:** Instant PDF generation upon project completion[cite: 1186].
+- [cite_start]**Responsive Design:** Optimized for both desktop and mobile web browsers[cite: 1189].
 
-## 🛠️ Architecture & Tech Stack
-- **Frontend (UI & State):** React.js + Axios
-- **Frontend Server (Proxy & Hosted Build):** NGINX Alpine
-- **Backend Framework:** Node.js & Express.js
-- **Database:** PostgreSQL with `uuid-ossp` extensions
-- **DevOps & Containers:** Docker & Docker Compose
+## 🛠️ Tech Stack
+- **Frontend:** React.js
+- **Backend:** Node.js & Express
+- **Database:** PostgreSQL
+- [cite_start]**DevOps:** Docker & Docker Compose [cite: 1111, 1192]
 
----
+## 📋 Prerequisites
+- Node.js (v18+)
+- PostgreSQL (v14+)
+- Docker (optional for containerized deployment)
 
-## ⚙️ Installation & Deployment
-
-This project requires **Docker** and **Docker Compose** installed on your system. You don't actually need Node.js or PostgreSQL installed natively!
-
-### 1. Provision the Environment
-```bash
-# Clone the repository
-git clone https://github.com/georgejoseph753/freelance-micro-crm.git
-cd freelance-micro-crm
-
-# Build and start all services via Docker
-sudo docker-compose up --build -d
-```
-
-### 2. Access the Application
-- Open your browser to `http://localhost:3000`
-- The PostgreSQL database will seamlessly boot and run its local `schema.sql` migrations instantly!
-
-*(Note: If you run `docker-compose down -v` to delete and wipe your database containers entirely, remember to "Logout" in your browser before trying to test again, as your browser's persistent JWT token will no longer align with the fresh database!)*
-
-## 🛡️ Security Overview
-This application enforces strict database-level referential integrity using PostgreSQL Foreign Keys (`ON DELETE CASCADE`) to naturally prevent data lingering. 
-The API is specifically patched against malicious Cross-Account Data Modification by actively intercepting all routing requests and asserting `$user_id` ownership constraints natively through the `pg` pool.
+## ⚙️ Installation & Setup
+1. **Clone the repository:**
+   ```bash
+   git clone [https://github.com/YourUsername/freelance-micro-crm.git](https://github.com/YourUsername/freelance-micro-crm.git)
+   cd freelance-micro-crm

@@ -176,6 +176,7 @@ const ProjectManager = ({ token }) => {
             value={formData.total_amount}
             onChange={handleInputChange}
             required
+            step="0.01"
             style={styles.input}
           />
 
