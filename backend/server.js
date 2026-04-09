@@ -349,4 +349,4 @@ app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
 
 // 5. START SERVER
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running perfectly on port ${PORT}`));git 
+app.listen(PORT, () => console.log(`Server running perfectly on port ${PORT}`));
