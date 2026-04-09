@@ -32,6 +32,7 @@ CREATE TABLE projects
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
+  description TEXT,
   status VARCHAR(50) CHECK (status IN ('Lead', 'Active', 'Completed')) DEFAULT 'Lead',
   deadline DATE,
   total_amount DECIMAL(12, 2) DEFAULT 0.00,

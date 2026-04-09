@@ -7,19 +7,22 @@ const ProjectManager = ({ token }) => {
   const [formData, setFormData] = useState({
     client_id: "",
     title: "",
+    description: "", // Added: Matches backend requirement
     status: "Lead",
     deadline: "",
     total_amount: "",
   });
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false); // Added for visual feedback
+
+  const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
 
   const fetchData = useCallback(async () => {
     try {
-      const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
       const [projectsRes, clientsRes] = await Promise.all([
-        axios.get("http://localhost:5000/api/projects", apiConfig),
-        axios.get("http://localhost:5000/api/clients", apiConfig),
+        axios.get("/api/projects", apiConfig),
+        axios.get("/api/clients", apiConfig),
       ]);
       setProjects(projectsRes.data);
       setClients(clientsRes.data);
@@ -32,8 +35,6 @@ const ProjectManager = ({ token }) => {
     fetchData();
   }, [fetchData]);
 
-  const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
-
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
@@ -43,23 +44,26 @@ const ProjectManager = ({ token }) => {
     try {
       if (editingId) {
         await axios.put(
-          `http://localhost:5000/api/projects/${editingId}`,
+          `/api/projects/${editingId}`,
           formData,
           apiConfig
         );
         setMessage("Project updated successfully!");
       } else {
         await axios.post(
-          "http://localhost:5000/api/projects",
+          "/api/projects",
           formData,
           apiConfig
         );
         setMessage("Project added successfully!");
       }
-      // Reset form
+      setIsError(false);
+      
+      // Reset form including description
       setFormData({
         client_id: "",
         title: "",
+        description: "",
         status: "Lead",
         deadline: "",
         total_amount: "",
@@ -67,75 +71,73 @@ const ProjectManager = ({ token }) => {
       setEditingId(null);
       fetchData();
     } catch (error) {
-      setMessage("Error saving project.");
+      console.error("Save error:", error);
+      setMessage("Error saving project. Check if all fields are filled.");
+      setIsError(true);
     }
   };
 
   const handleEdit = (project) => {
-    // Format the date so it fits in the HTML date input
     const formattedDate = project.deadline
       ? new Date(project.deadline).toISOString().split("T")[0]
       : "";
-    setFormData({ ...project, deadline: formattedDate });
+    setFormData({ 
+      ...project, 
+      deadline: formattedDate,
+      description: project.description || "" // Ensure description is loaded
+    });
     setEditingId(project.id);
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this project?")) {
+    if (window.confirm("Are you sure?")) {
       try {
-        await axios.delete(
-          `http://localhost:5000/api/projects/${id}`,
-          apiConfig
-        );
+        await axios.delete(`/api/projects/${id}`, apiConfig);
         setMessage("Project deleted.");
+        setIsError(false);
         fetchData();
       } catch (error) {
         setMessage("Error deleting project.");
+        setIsError(true);
       }
     }
   };
 
-  // DOWNLOAD PDF INVOICE
   const handleDownloadInvoice = async (id, title) => {
     try {
-      setMessage("Generating invoice..."); 
+      setMessage("Generating invoice...");
+      setIsError(false);
       const response = await axios.get(
-        `http://localhost:5000/api/projects/${id}/invoice`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-          responseType: "blob",
-        }
+        `/api/projects/${id}/invoice`,
+        { ...apiConfig, responseType: "blob" }
       );
 
-      // Create a temporary hidden link to download the file
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
-      link.setAttribute(
-        "download",
-        `Invoice_${title.replace(/\s+/g, "_")}.pdf`
-      );
+      link.setAttribute("download", `Invoice_${title.replace(/\s+/g, "_")}.pdf`);
       document.body.appendChild(link);
-      link.click(); // Force the download
-      link.parentNode.removeChild(link); // Clean up
-
-      setMessage("Invoice downloaded successfully!");
+      link.click();
+      document.body.removeChild(link);
+      setMessage("Invoice downloaded!");
     } catch (error) {
-      console.error("Download error:", error);
-      setMessage("Error generating invoice. Ensure project is complete.");
+      setMessage("Error generating invoice.");
+      setIsError(true);
     }
   };
 
   return (
     <div style={styles.container}>
       <h2>Project Management</h2>
-      {message && <p style={styles.message}>{message}</p>}
+      {message && (
+        <p style={{ ...styles.message, color: isError ? "#dc3545" : "#28a745" }}>
+          {message}
+        </p>
+      )}
 
-      {/* The Form */}
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.grid}>
           <input
-            type="text"
             name="title"
             placeholder="Project Title"
             value={formData.title}
@@ -144,7 +146,6 @@ const ProjectManager = ({ token }) => {
             style={styles.input}
           />
 
-          {/* Relational Dropdown: Assign to a Client */}
           <select
             name="client_id"
             value={formData.client_id}
@@ -152,41 +153,38 @@ const ProjectManager = ({ token }) => {
             required
             style={styles.input}
           >
-            <option value="" disabled>
-              Select a Client
-            </option>
+            <option value="" disabled>Select a Client</option>
             {clients.map((client) => (
               <option key={client.id} value={client.id}>
-                {client.first_name} {client.last_name} ({client.company_name})
+                {client.first_name} {client.last_name}
               </option>
             ))}
           </select>
 
-          <select
-            name="status"
-            value={formData.status}
-            onChange={handleInputChange}
-            style={styles.input}
-          >
+          <select name="status" value={formData.status} onChange={handleInputChange} style={styles.input}>
             <option value="Lead">Lead</option>
             <option value="Active">Active</option>
             <option value="Completed">Completed</option>
           </select>
 
-          <input
-            type="date"
-            name="deadline"
-            value={formData.deadline}
-            onChange={handleInputChange}
-            style={styles.input}
-          />
+          <input type="date" name="deadline" value={formData.deadline} onChange={handleInputChange} required style={styles.input} />
+          
           <input
             type="number"
-            step="0.01"
             name="total_amount"
             placeholder="Total Amount (€)"
             value={formData.total_amount}
             onChange={handleInputChange}
+            required
+            style={styles.input}
+          />
+
+          <input
+            name="description"
+            placeholder="Project Description (Required)"
+            value={formData.description}
+            onChange={handleInputChange}
+            required
             style={styles.input}
           />
         </div>
@@ -194,34 +192,14 @@ const ProjectManager = ({ token }) => {
         <button type="submit" style={styles.button}>
           {editingId ? "Update Project" : "Add New Project"}
         </button>
-        {editingId && (
-          <button
-            type="button"
-            onClick={() => {
-              setEditingId(null);
-              setFormData({
-                client_id: "",
-                title: "",
-                status: "Lead",
-                deadline: "",
-                total_amount: "",
-              });
-            }}
-            style={styles.cancelButton}
-          >
-            Cancel
-          </button>
-        )}
       </form>
 
-      {/* The Data Table */}
       <table style={styles.table}>
         <thead>
           <tr>
-            <th style={styles.th}>Project Title</th>
+            <th style={styles.th}>Title</th>
             <th style={styles.th}>Client</th>
             <th style={styles.th}>Status</th>
-            <th style={styles.th}>Deadline</th>
             <th style={styles.th}>Amount</th>
             <th style={styles.th}>Actions</th>
           </tr>
@@ -230,53 +208,19 @@ const ProjectManager = ({ token }) => {
           {projects.map((project) => (
             <tr key={project.id}>
               <td style={styles.td}>{project.title}</td>
+              <td style={styles.td}>{project.first_name} {project.last_name}</td>
               <td style={styles.td}>
-                {project.first_name} {project.last_name}
-              </td>
-              <td style={styles.td}>
-                <span
-                  style={{
-                    ...styles.badge,
-                    backgroundColor:
-                      project.status === "Completed"
-                        ? "#28a745"
-                        : project.status === "Active"
-                          ? "#007bff"
-                          : "#6c757d",
-                  }}
-                >
+                <span style={{ ...styles.badge, backgroundColor: project.status === "Completed" ? "#28a745" : "#007bff" }}>
                   {project.status}
                 </span>
               </td>
-              <td style={styles.td}>
-                {project.deadline
-                  ? new Date(project.deadline).toLocaleDateString()
-                  : "N/A"}
-              </td>
               <td style={styles.td}>€{project.total_amount}</td>
               <td style={styles.td}>
-                <button
-                  onClick={() => handleEdit(project)}
-                  style={styles.editBtn}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(project.id)}
-                  style={styles.deleteBtn}
-                >
-                  Delete
-                </button>
-
-                {/* Conditional Rendering: Only show if status is 'Completed' */}
+                <button onClick={() => handleEdit(project)} style={styles.editBtn}>Edit</button>
+                <button onClick={() => handleDelete(project.id)} style={styles.deleteBtn}>Delete</button>
                 {project.status === "Completed" && (
-                  <button
-                    onClick={() =>
-                      handleDownloadInvoice(project.id, project.title)
-                    }
-                    style={styles.invoiceBtn}
-                  >
-                    Download Invoice
+                  <button onClick={() => handleDownloadInvoice(project.id, project.title)} style={styles.invoiceBtn}>
+                    Invoice
                   </button>
                 )}
               </td>
@@ -289,82 +233,19 @@ const ProjectManager = ({ token }) => {
 };
 
 const styles = {
-  container: {
-    padding: "20px",
-    maxWidth: "1000px",
-    margin: "0 auto",
-    fontFamily: "Arial, sans-serif",
-  },
-  message: { color: "green", fontWeight: "bold" },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    marginBottom: "30px",
-    padding: "15px",
-    border: "1px solid #ddd",
-    borderRadius: "5px",
-  },
+  container: { padding: "20px", maxWidth: "1000px", margin: "0 auto", fontFamily: "Arial, sans-serif" },
+  message: { fontWeight: "bold", padding: "10px", backgroundColor: "#f8f9fa", borderRadius: "4px", textAlign: "center" },
+  form: { display: "flex", flexDirection: "column", gap: "10px", marginBottom: "30px", padding: "15px", border: "1px solid #ddd", borderRadius: "5px" },
   grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" },
   input: { padding: "8px", border: "1px solid #ccc", borderRadius: "4px" },
-  button: {
-    padding: "10px",
-    backgroundColor: "#28a745",
-    color: "white",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    marginTop: "10px",
-  },
-  cancelButton: {
-    padding: "10px",
-    backgroundColor: "#6c757d",
-    color: "white",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    marginTop: "5px",
-  },
+  button: { padding: "10px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer" },
   table: { width: "100%", borderCollapse: "collapse" },
-  th: {
-    backgroundColor: "#f4f4f4",
-    padding: "10px",
-    border: "1px solid #ddd",
-    textAlign: "left",
-  },
+  th: { backgroundColor: "#f4f4f4", padding: "10px", border: "1px solid #ddd", textAlign: "left" },
   td: { padding: "10px", border: "1px solid #ddd" },
-  badge: {
-    padding: "4px 8px",
-    borderRadius: "12px",
-    color: "white",
-    fontSize: "0.85rem",
-  },
-  editBtn: {
-    backgroundColor: "#007bff",
-    color: "white",
-    border: "none",
-    padding: "5px 10px",
-    marginRight: "5px",
-    cursor: "pointer",
-    borderRadius: "3px",
-  },
-  deleteBtn: {
-    backgroundColor: "#dc3545",
-    color: "white",
-    border: "none",
-    padding: "5px 10px",
-    cursor: "pointer",
-    borderRadius: "3px",
-  },
-  invoiceBtn: {
-    backgroundColor: "#17a2b8",
-    color: "white",
-    border: "none",
-    padding: "5px 10px",
-    cursor: "pointer",
-    borderRadius: "3px",
-    marginLeft: "5px",
-  },
+  badge: { padding: "4px 8px", borderRadius: "12px", color: "white", fontSize: "0.85rem" },
+  editBtn: { backgroundColor: "#007bff", color: "white", border: "none", padding: "5px 10px", marginRight: "5px", borderRadius: "3px" },
+  deleteBtn: { backgroundColor: "#dc3545", color: "white", border: "none", padding: "5px 10px", borderRadius: "3px" },
+  invoiceBtn: { backgroundColor: "#17a2b8", color: "white", border: "none", padding: "5px 10px", marginLeft: "5px", borderRadius: "3px" },
 };
 
 export default ProjectManager;

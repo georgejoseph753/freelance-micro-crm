@@ -73,10 +73,16 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(" ")[1];
   if (!token) return res.status(401).json({ error: "Access denied." });
 
-  jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+  jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
     if (err) return res.status(403).json({ error: "Invalid token." });
-    req.user = user;
-    next();
+    try {
+      const userCheck = await pool.query("SELECT id FROM users WHERE id = $1", [user.id]);
+      if (userCheck.rows.length === 0) return res.status(401).json({ error: "User no longer exists. Please log out." });
+      req.user = user;
+      next();
+    } catch (dbErr) {
+      res.status(500).json({ error: "Database authentication error." });
+    }
   });
 };
 
@@ -150,10 +156,6 @@ app.put("/api/clients/:id", authenticateToken, async (req, res) => {
 // DELETE CLIENT
 app.delete("/api/clients/:id", authenticateToken, async (req, res) => {
   try {
-    await pool.query("DELETE FROM projects WHERE client_id = $1", [
-      req.params.id,
-    ]);
-
     await pool.query("DELETE FROM clients WHERE id = $1 AND user_id = $2", [
       req.params.id,
       req.user.id,
@@ -189,6 +191,16 @@ app.get("/api/projects", authenticateToken, async (req, res) => {
 app.post("/api/projects", authenticateToken, async (req, res) => {
   const { client_id, title, description, status, deadline, total_amount } = req.body;
   try {
+    // Ensure client belongs to authenticated user
+    const clientCheck = await pool.query(
+      "SELECT id FROM clients WHERE id = $1 AND user_id = $2",
+      [client_id, req.user.id]
+    );
+
+    if (clientCheck.rows.length === 0) {
+      return res.status(403).json({ error: "Unauthorized or client not found." });
+    }
+
     await pool.query(
       `INSERT INTO projects (client_id, title, description, status, deadline, total_amount) 
        VALUES ($1, $2, $3, $4, $5, $6)`,

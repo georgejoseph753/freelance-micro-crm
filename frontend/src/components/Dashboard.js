@@ -21,11 +21,11 @@ const Dashboard = ({ token }) => {
 
         // Fetching both clients and projects to aggregate data for the overview
         const clientsRes = await axios.get(
-          "http://localhost:5000/api/clients",
+          "/api/clients",
           apiConfig,
         );
         const projectsRes = await axios.get(
-          "http://localhost:5000/api/projects",
+          "/api/projects",
           apiConfig,
         );
 

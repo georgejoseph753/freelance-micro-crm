@@ -13,25 +13,22 @@ const ClientManager = ({ token }) => {
   });
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState("");
+  const [isError, setIsError] = useState(false); // Added for dynamic color feedback
 
-  // Axios configuration to include the JWT token securely
   const apiConfig = {
     headers: { Authorization: `Bearer ${token}` },
   };
 
-  // 1. Single declaration of fetchClients wrapped in useCallback
+  // 1. Fetch Clients from Backend
   const fetchClients = useCallback(async () => {
     try {
-      const response = await axios.get("http://localhost:5000/api/clients", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.get("/api/clients", apiConfig);
       setClients(response.data);
     } catch (error) {
       console.error("Error fetching clients:", error);
     }
-  }, [token]); // token is the dependency for useCallback
+  }, [token]);
 
-  // 2. Single useEffect to trigger the fetch on load
   useEffect(() => {
     fetchClients();
   }, [fetchClients]);
@@ -40,27 +37,29 @@ const ClientManager = ({ token }) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // CREATE & UPDATE: Handle form submission for both creating and updating clients
+  // 2. CREATE & UPDATE Handler
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editingId) {
-        // Update existing client
         await axios.put(
-          `http://localhost:5000/api/clients/${editingId}`,
+          `/api/clients/${editingId}`,
           formData,
-          apiConfig,
+          apiConfig
         );
         setMessage("Client updated successfully!");
+        setIsError(false);
       } else {
-        // Create new client
         await axios.post(
-          "http://localhost:5000/api/clients",
+          "/api/clients",
           formData,
-          apiConfig,
+          apiConfig
         );
         setMessage("Client added successfully!");
+        setIsError(false);
       }
+      
+      // Reset Form
       setFormData({
         first_name: "",
         last_name: "",
@@ -70,30 +69,37 @@ const ClientManager = ({ token }) => {
         notes: "",
       });
       setEditingId(null);
-      fetchClients(); // Refresh the list
+      fetchClients();
     } catch (error) {
-      setMessage("Error saving client.");
+      console.error("Submission error:", error);
+      setMessage("Error saving client. Please check backend logs.");
+      setIsError(true);
     }
   };
 
-  // Prepare form for editing
   const handleEdit = (client) => {
-    setFormData(client);
+    setFormData({
+      first_name: client.first_name,
+      last_name: client.last_name,
+      email: client.email,
+      company_name: client.company_name || "",
+      billing_address: client.billing_address || "",
+      notes: client.notes || "",
+    });
     setEditingId(client.id);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  // DELETE: Remove a client
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this client?")) {
+    if (window.confirm("Are you sure? This will also delete all projects for this client.")) {
       try {
-        await axios.delete(
-          `http://localhost:5000/api/clients/${id}`,
-          apiConfig,
-        );
+        await axios.delete(`/api/clients/${id}`, apiConfig);
         setMessage("Client deleted.");
+        setIsError(false);
         fetchClients();
       } catch (error) {
         setMessage("Error deleting client.");
+        setIsError(true);
       }
     }
   };
@@ -101,9 +107,14 @@ const ClientManager = ({ token }) => {
   return (
     <div style={styles.container}>
       <h2>Client Management</h2>
-      {message && <p style={styles.message}>{message}</p>}
+      
+      {/* Dynamic message color: Red for errors, Green for success */}
+      {message && (
+        <p style={{ ...styles.message, color: isError ? "#dc3545" : "#28a745" }}>
+          {message}
+        </p>
+      )}
 
-      {/* The Form (Create/Update) */}
       <form onSubmit={handleSubmit} style={styles.form}>
         <div style={styles.grid}>
           <input
@@ -127,7 +138,7 @@ const ClientManager = ({ token }) => {
           <input
             type="email"
             name="email"
-            placeholder="Email"
+            placeholder="Email Address"
             value={formData.email}
             onChange={handleInputChange}
             required
@@ -151,36 +162,29 @@ const ClientManager = ({ token }) => {
         />
         <textarea
           name="notes"
-          placeholder="Notes"
+          placeholder="Private Notes"
           value={formData.notes}
           onChange={handleInputChange}
           style={styles.textarea}
         />
         <button type="submit" style={styles.button}>
-          {editingId ? "Update Client" : "Add New Client"}
+          {editingId ? "Update Client Profile" : "Add New Client"}
         </button>
+        
         {editingId && (
           <button
             type="button"
             onClick={() => {
               setEditingId(null);
-              setFormData({
-                first_name: "",
-                last_name: "",
-                email: "",
-                company_name: "",
-                billing_address: "",
-                notes: "",
-              });
+              setFormData({ first_name: "", last_name: "", email: "", company_name: "", billing_address: "", notes: "" });
             }}
             style={styles.cancelButton}
           >
-            Cancel
+            Cancel Edit
           </button>
         )}
       </form>
 
-      {/* The Data Table (Read/Delete) */}
       <table style={styles.table}>
         <thead>
           <tr>
@@ -191,29 +195,21 @@ const ClientManager = ({ token }) => {
           </tr>
         </thead>
         <tbody>
-          {clients.map((client) => (
-            <tr key={client.id}>
-              <td style={styles.td}>
-                {client.first_name} {client.last_name}
-              </td>
-              <td style={styles.td}>{client.company_name}</td>
-              <td style={styles.td}>{client.email}</td>
-              <td style={styles.td}>
-                <button
-                  onClick={() => handleEdit(client)}
-                  style={styles.editBtn}
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => handleDelete(client.id)}
-                  style={styles.deleteBtn}
-                >
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
+          {clients.length === 0 ? (
+            <tr><td colSpan="4" style={{ textAlign: "center", padding: "20px" }}>No clients found. Add one above!</td></tr>
+          ) : (
+            clients.map((client) => (
+              <tr key={client.id}>
+                <td style={styles.td}>{client.first_name} {client.last_name}</td>
+                <td style={styles.td}>{client.company_name || "-"}</td>
+                <td style={styles.td}>{client.email}</td>
+                <td style={styles.td}>
+                  <button onClick={() => handleEdit(client)} style={styles.editBtn}>Edit</button>
+                  <button onClick={() => handleDelete(client.id)} style={styles.deleteBtn}>Delete</button>
+                </td>
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -221,72 +217,19 @@ const ClientManager = ({ token }) => {
 };
 
 const styles = {
-  container: {
-    padding: "20px",
-    maxWidth: "800px",
-    margin: "0 auto",
-    fontFamily: "Arial, sans-serif",
-  },
-  message: { color: "green", fontWeight: "bold" },
-  form: {
-    display: "flex",
-    flexDirection: "column",
-    gap: "10px",
-    marginBottom: "30px",
-    padding: "15px",
-    border: "1px solid #ddd",
-    borderRadius: "5px",
-  },
-  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px" },
-  input: { padding: "8px", border: "1px solid #ccc", borderRadius: "4px" },
-  textarea: {
-    padding: "8px",
-    border: "1px solid #ccc",
-    borderRadius: "4px",
-    minHeight: "60px",
-  },
-  button: {
-    padding: "10px",
-    backgroundColor: "#28a745",
-    color: "white",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-  },
-  cancelButton: {
-    padding: "10px",
-    backgroundColor: "#6c757d",
-    color: "white",
-    border: "none",
-    borderRadius: "4px",
-    cursor: "pointer",
-    marginTop: "5px",
-  },
-  table: { width: "100%", borderCollapse: "collapse" },
-  th: {
-    backgroundColor: "#f4f4f4",
-    padding: "10px",
-    border: "1px solid #ddd",
-    textAlign: "left",
-  },
-  td: { padding: "10px", border: "1px solid #ddd" },
-  editBtn: {
-    backgroundColor: "#007bff",
-    color: "white",
-    border: "none",
-    padding: "5px 10px",
-    marginRight: "5px",
-    cursor: "pointer",
-    borderRadius: "3px",
-  },
-  deleteBtn: {
-    backgroundColor: "#dc3545",
-    color: "white",
-    border: "none",
-    padding: "5px 10px",
-    cursor: "pointer",
-    borderRadius: "3px",
-  },
+  container: { padding: "20px", maxWidth: "900px", margin: "0 auto", fontFamily: "Segoe UI, Tahoma, Geneva, Verdana, sans-serif" },
+  message: { padding: "10px", borderRadius: "4px", backgroundColor: "#f8f9fa", textAlign: "center" },
+  form: { display: "flex", flexDirection: "column", gap: "10px", marginBottom: "30px", padding: "20px", border: "1px solid #eee", borderRadius: "8px", boxShadow: "0 2px 4px rgba(0,0,0,0.05)" },
+  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "15px" },
+  input: { padding: "10px", border: "1px solid #ddd", borderRadius: "4px", fontSize: "14px" },
+  textarea: { padding: "10px", border: "1px solid #ddd", borderRadius: "4px", minHeight: "80px", fontSize: "14px" },
+  button: { padding: "12px", backgroundColor: "#28a745", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", fontWeight: "bold" },
+  cancelButton: { padding: "10px", backgroundColor: "#6c757d", color: "white", border: "none", borderRadius: "4px", cursor: "pointer", marginTop: "5px" },
+  table: { width: "100%", borderCollapse: "collapse", marginTop: "10px" },
+  th: { backgroundColor: "#f8f9fa", padding: "12px", borderBottom: "2px solid #dee2e6", textAlign: "left" },
+  td: { padding: "12px", borderBottom: "1px solid #eee" },
+  editBtn: { backgroundColor: "#007bff", color: "white", border: "none", padding: "6px 12px", marginRight: "8px", cursor: "pointer", borderRadius: "4px" },
+  deleteBtn: { backgroundColor: "#dc3545", color: "white", border: "none", padding: "6px 12px", cursor: "pointer", borderRadius: "4px" },
 };
 
 export default ClientManager;
