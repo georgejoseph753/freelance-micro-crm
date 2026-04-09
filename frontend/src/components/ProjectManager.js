@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react"; 
 import axios from "axios";
 
 const ProjectManager = ({ token }) => {
@@ -14,16 +14,9 @@ const ProjectManager = ({ token }) => {
   const [editingId, setEditingId] = useState(null);
   const [message, setMessage] = useState("");
 
-  const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
-
-  // Fetch both Projects and Clients when the page loads
-  useEffect(() => {
-    fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
+      const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
       const [projectsRes, clientsRes] = await Promise.all([
         axios.get("http://localhost:5000/api/projects", apiConfig),
         axios.get("http://localhost:5000/api/clients", apiConfig),
@@ -33,7 +26,13 @@ const ProjectManager = ({ token }) => {
     } catch (error) {
       console.error("Error fetching data:", error);
     }
-  };
+  }, [token]); 
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  const apiConfig = { headers: { Authorization: `Bearer ${token}` } };
 
   const handleInputChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -46,14 +45,14 @@ const ProjectManager = ({ token }) => {
         await axios.put(
           `http://localhost:5000/api/projects/${editingId}`,
           formData,
-          apiConfig,
+          apiConfig
         );
         setMessage("Project updated successfully!");
       } else {
         await axios.post(
           "http://localhost:5000/api/projects",
           formData,
-          apiConfig,
+          apiConfig
         );
         setMessage("Project added successfully!");
       }
@@ -86,7 +85,7 @@ const ProjectManager = ({ token }) => {
       try {
         await axios.delete(
           `http://localhost:5000/api/projects/${id}`,
-          apiConfig,
+          apiConfig
         );
         setMessage("Project deleted.");
         fetchData();
@@ -99,13 +98,13 @@ const ProjectManager = ({ token }) => {
   // DOWNLOAD PDF INVOICE
   const handleDownloadInvoice = async (id, title) => {
     try {
-      setMessage("Generating invoice..."); // Quick UI feedback
+      setMessage("Generating invoice..."); 
       const response = await axios.get(
         `http://localhost:5000/api/projects/${id}/invoice`,
         {
           headers: { Authorization: `Bearer ${token}` },
-          responseType: "blob", // CRITICAL: Tells React to expect a file, not JSON
-        },
+          responseType: "blob",
+        }
       );
 
       // Create a temporary hidden link to download the file
@@ -114,7 +113,7 @@ const ProjectManager = ({ token }) => {
       link.href = url;
       link.setAttribute(
         "download",
-        `Invoice_${title.replace(/\s+/g, "_")}.pdf`,
+        `Invoice_${title.replace(/\s+/g, "_")}.pdf`
       );
       document.body.appendChild(link);
       link.click(); // Force the download

@@ -11,7 +11,6 @@ const PdfPrinter = require("pdfmake");
 const app = express();
 
 // 1. MIDDLEWARE & DATABASE SETUP
-
 app.use(cors());
 app.use(express.json());
 
@@ -34,7 +33,7 @@ app.post("/api/auth/register", async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 12);
     await pool.query(
       "INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id, email",
-      [email, hashedPassword],
+      [email, hashedPassword]
     );
     res.status(201).json({ message: "Registration successful." });
   } catch (err) {
@@ -48,7 +47,7 @@ app.post("/api/auth/login", async (req, res) => {
   try {
     const userResult = await pool.query(
       "SELECT * FROM users WHERE email = $1",
-      [email],
+      [email]
     );
     if (userResult.rows.length === 0)
       return res.status(401).json({ error: "Invalid credentials." });
@@ -61,7 +60,7 @@ app.post("/api/auth/login", async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET,
-      { expiresIn: "8h" },
+      { expiresIn: "8h" }
     );
     res.json({ token, user: { id: user.id, email: user.email } });
   } catch (err) {
@@ -82,13 +81,13 @@ const authenticateToken = (req, res, next) => {
 };
 
 // 3. CLIENT & PROJECT ROUTES (CRUD)
-// CLIENTS
 
+// GET ALL CLIENTS
 app.get("/api/clients", authenticateToken, async (req, res) => {
   try {
     const clients = await pool.query(
       "SELECT * FROM clients WHERE user_id = $1",
-      [req.user.id],
+      [req.user.id]
     );
     res.json(clients.rows);
   } catch (err) {
@@ -98,53 +97,74 @@ app.get("/api/clients", authenticateToken, async (req, res) => {
 
 // ADD NEW CLIENT (POST)
 app.post("/api/clients", authenticateToken, async (req, res) => {
-  const { first_name, last_name, company_name, email, phone, billing_address } =
-    req.body;
+  const { first_name, last_name, email, company_name, billing_address, notes } = req.body;
+  
   try {
     await pool.query(
-      `INSERT INTO clients (user_id, first_name, last_name, company_name, email, phone, billing_address) 
+      `INSERT INTO clients (user_id, first_name, last_name, email, company_name, billing_address, notes) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
       [
         req.user.id,
         first_name,
         last_name,
-        company_name,
         email,
-        phone,
+        company_name,
         billing_address,
-      ],
+        notes
+      ]
     );
     res.status(201).json({ message: "Client added successfully." });
   } catch (err) {
-    console.error(err);
+    console.error("Error adding client:", err);
     res.status(500).json({ error: "Error adding client." });
   }
 });
 
 // EDIT CLIENT (PUT)
 app.put("/api/clients/:id", authenticateToken, async (req, res) => {
-  const { first_name, last_name, company_name, email, phone, billing_address } =
-    req.body;
+  const { first_name, last_name, email, company_name, billing_address, notes } = req.body;
+  
   try {
     await pool.query(
       `UPDATE clients 
-       SET first_name = $1, last_name = $2, company_name = $3, email = $4, phone = $5, billing_address = $6 
+       SET first_name = $1, last_name = $2, email = $3, company_name = $4, billing_address = $5, notes = $6 
        WHERE id = $7 AND user_id = $8`,
       [
         first_name,
         last_name,
-        company_name,
         email,
-        phone,
+        company_name,
         billing_address,
+        notes,
         req.params.id,
-        req.user.id,
-      ],
+        req.user.id
+      ]
     );
     res.json({ message: "Client updated successfully." });
   } catch (err) {
-    console.error(err);
+    console.error("Error updating client:", err);
     res.status(500).json({ error: "Error updating client." });
+  }
+});
+
+// DELETE CLIENT
+app.delete("/api/clients/:id", authenticateToken, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM projects WHERE client_id = $1", [
+      req.params.id,
+    ]);
+
+    await pool.query("DELETE FROM clients WHERE id = $1 AND user_id = $2", [
+      req.params.id,
+      req.user.id,
+    ]);
+
+    res.json({
+      message: "Client and associated projects deleted successfully.",
+    });
+  } catch (err) {
+    console.error("Delete client error:", err);
+    res.status(500).json({ error: "Error deleting client." });
   }
 });
 
@@ -157,7 +177,7 @@ app.get("/api/projects", authenticateToken, async (req, res) => {
       `SELECT p.*, c.first_name, c.last_name, c.company_name 
        FROM projects p JOIN clients c ON p.client_id = c.id 
        WHERE c.user_id = $1`,
-      [req.user.id],
+      [req.user.id]
     );
     res.json(projects.rows);
   } catch (err) {
@@ -167,13 +187,12 @@ app.get("/api/projects", authenticateToken, async (req, res) => {
 
 // ADD NEW PROJECT (POST)
 app.post("/api/projects", authenticateToken, async (req, res) => {
-  const { client_id, title, description, status, deadline, total_amount } =
-    req.body;
+  const { client_id, title, description, status, deadline, total_amount } = req.body;
   try {
     await pool.query(
       `INSERT INTO projects (client_id, title, description, status, deadline, total_amount) 
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [client_id, title, description, status, deadline, total_amount],
+      [client_id, title, description, status, deadline, total_amount]
     );
     res.status(201).json({ message: "Project added successfully." });
   } catch (err) {
@@ -198,7 +217,7 @@ app.put("/api/projects/:id", authenticateToken, async (req, res) => {
         total_amount,
         req.params.id,
         req.user.id,
-      ],
+      ]
     );
     res.json({ message: "Project updated successfully." });
   } catch (err) {
@@ -207,39 +226,13 @@ app.put("/api/projects/:id", authenticateToken, async (req, res) => {
   }
 });
 
-// DELETE CLIENT
-
-app.delete("/api/clients/:id", authenticateToken, async (req, res) => {
-  try {
-    // SECURITY/SAFETY: First, delete any projects associated with this client
-    // to prevent PostgreSQL Foreign Key constraint errors.
-    await pool.query("DELETE FROM projects WHERE client_id = $1", [
-      req.params.id,
-    ]);
-
-    // Then, delete the client themselves
-    await pool.query("DELETE FROM clients WHERE id = $1 AND user_id = $2", [
-      req.params.id,
-      req.user.id,
-    ]);
-
-    res.json({
-      message: "Client and associated projects deleted successfully.",
-    });
-  } catch (err) {
-    console.error("Delete client error:", err);
-    res.status(500).json({ error: "Error deleting client." });
-  }
-});
-
 // DELETE PROJECT
 app.delete("/api/projects/:id", authenticateToken, async (req, res) => {
   try {
-    // SECURITY: Ensure the user owns the client attached to the project before deleting
     await pool.query(
       `DELETE FROM projects 
        WHERE id = $1 AND client_id IN (SELECT id FROM clients WHERE user_id = $2)`,
-      [req.params.id, req.user.id],
+      [req.params.id, req.user.id]
     );
     res.json({ message: "Project deleted successfully." });
   } catch (err) {
@@ -247,15 +240,15 @@ app.delete("/api/projects/:id", authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Error deleting project." });
   }
 });
-// 4. INVOICE GENERATOR SERVICE
 
+// 4. INVOICE GENERATOR SERVICE
 app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
   try {
     const projectQuery = await pool.query(
       `SELECT p.*, c.first_name, c.last_name, c.company_name, c.billing_address, c.email
        FROM projects p JOIN clients c ON p.client_id = c.id
        WHERE p.id = $1 AND c.user_id = $2`,
-      [req.params.id, req.user.id],
+      [req.params.id, req.user.id]
     );
 
     if (projectQuery.rows.length === 0)
@@ -263,7 +256,6 @@ app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
 
     const project = projectQuery.rows[0];
 
-    // 1. Define standard fonts
     const fonts = {
       Helvetica: {
         normal: "Helvetica",
@@ -273,62 +265,31 @@ app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
       },
     };
 
-    // 2. Initialize the Printer safely
     const printer = new PdfPrinter(fonts);
 
-    // 3. Document Definition
     const docDefinition = {
       defaultStyle: { font: "Helvetica", fontSize: 10, color: "#333333" },
       content: [
-        // Modern Header
         {
           columns: [
-            {
-              text: "Freelance Micro-CRM",
-              fontSize: 20,
-              bold: true,
-              color: "#007bff",
-            },
-            {
-              text: "INVOICE",
-              fontSize: 28,
-              bold: true,
-              alignment: "right",
-              color: "#222222",
-            },
+            { text: "Freelance Micro-CRM", fontSize: 20, bold: true, color: "#007bff" },
+            { text: "INVOICE", fontSize: 28, bold: true, alignment: "right", color: "#222222" },
           ],
           margin: [0, 0, 0, 20],
         },
-        // A subtle divider line
         {
-          canvas: [
-            {
-              type: "line",
-              x1: 0,
-              y1: 0,
-              x2: 515,
-              y2: 0,
-              lineWidth: 1,
-              lineColor: "#dddddd",
-            },
-          ],
+          canvas: [{ type: "line", x1: 0, y1: 0, x2: 515, y2: 0, lineWidth: 1, lineColor: "#dddddd" }],
           margin: [0, 0, 0, 20],
         },
-        // Client Info
         {
           columns: [
             {
               width: "50%",
               text: [
-                {
-                  text: "BILLED TO:\n",
-                  bold: true,
-                  fontSize: 12,
-                  color: "#555555",
-                },
+                { text: "BILLED TO:\n", bold: true, fontSize: 12, color: "#555555" },
                 `${project.first_name} ${project.last_name}\n`,
                 `${project.company_name || ""}\n`,
-                `${project.billing_address || "No Billing Address Provided"}\n`, // <-- ADD THIS LINE
+                `${project.billing_address || "No Billing Address Provided"}\n`,
                 `${project.email}`,
               ],
             },
@@ -336,61 +297,30 @@ app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
               width: "50%",
               alignment: "right",
               text: [
-                {
-                  text: `Invoice #: INV-${project.id.substring(0, 8).toUpperCase()}\n`,
-                  bold: true,
-                },
+                { text: `Invoice #: INV-${project.id.substring(0, 8).toUpperCase()}\n`, bold: true },
                 `Date: ${new Date().toLocaleDateString()}\n`,
-                {
-                  text: `Status: ${project.status}`,
-                  color: "#28a745",
-                  bold: true,
-                },
+                { text: `Status: ${project.status}`, color: "#28a745", bold: true },
               ],
             },
           ],
           margin: [0, 0, 0, 30],
         },
-        // The Data Table
         {
           table: {
             headerRows: 1,
             widths: ["*", "auto"],
             body: [
-              // Table Header
               [
-                {
-                  text: "PROJECT DESCRIPTION",
-                  bold: true,
-                  fillColor: "#f4f4f4",
-                  border: [false, true, false, true],
-                  margin: [5, 5, 5, 5],
-                },
-                {
-                  text: "AMOUNT",
-                  bold: true,
-                  fillColor: "#f4f4f4",
-                  border: [false, true, false, true],
-                  margin: [5, 5, 5, 5],
-                },
+                { text: "PROJECT DESCRIPTION", bold: true, fillColor: "#f4f4f4", border: [false, true, false, true], margin: [5, 5, 5, 5] },
+                { text: "AMOUNT", bold: true, fillColor: "#f4f4f4", border: [false, true, false, true], margin: [5, 5, 5, 5] },
               ],
-              // Table Row
               [
-                {
-                  text: project.title,
-                  margin: [5, 10, 5, 10],
-                  border: [false, false, false, true],
-                },
-                {
-                  text: `€${parseFloat(project.total_amount).toFixed(2)}`,
-                  margin: [5, 10, 5, 10],
-                  border: [false, false, false, true],
-                },
+                { text: project.title, margin: [5, 10, 5, 10], border: [false, false, false, true] },
+                { text: `€${parseFloat(project.total_amount).toFixed(2)}`, margin: [5, 10, 5, 10], border: [false, false, false, true] },
               ],
             ],
           },
         },
-        // The Total
         {
           text: `TOTAL DUE: €${parseFloat(project.total_amount).toFixed(2)}`,
           bold: true,
@@ -401,12 +331,12 @@ app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
         },
       ],
     };
-    // 4. Generate and Stream
+
     const pdfDoc = printer.createPdfKitDocument(docDefinition);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader(
       "Content-Disposition",
-      `attachment; filename="Invoice_${project.id}.pdf"`,
+      `attachment; filename="Invoice_${project.id}.pdf"`
     );
 
     pdfDoc.pipe(res);
@@ -419,4 +349,4 @@ app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
 
 // 5. START SERVER
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running perfectly on port ${PORT}`));
+app.listen(PORT, () => console.log(`Server running perfectly on port ${PORT}`));git 
