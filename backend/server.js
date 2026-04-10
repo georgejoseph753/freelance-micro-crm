@@ -4,31 +4,46 @@ const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 require("dotenv").config();
-
-// The stable Node.js import for pdfmake
 const PdfPrinter = require("pdfmake");
+
+// ADDED: Rate limiting for authentication routes
+const rateLimit = require("express-rate-limit");
 
 const app = express();
 
 // 1. MIDDLEWARE & DATABASE SETUP
-app.use(cors());
+
+// FIXED: Restricted CORS to your frontend only
+app.use(cors({
+  origin: "http://localhost:3000",
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  credentials: true
+}));
 app.use(express.json());
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
 });
 
+// FIXED: Rate Limiter configuration
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // limit each IP to 10 requests per window
+  message: { error: "Too many requests from this IP, please try again later." }
+});
+
 // 2. AUTHENTICATION & SECURITY
 
 // REGISTER
-app.post("/api/auth/register", async (req, res) => {
+app.post("/api/auth/register", authLimiter, async (req, res) => {
   const { email, password } = req.body;
+  
+  // FIXED: Input Validation
+  if (!email || !password) return res.status(400).json({ error: "Email and password are required." });
+
   try {
-    const userCheck = await pool.query("SELECT * FROM users WHERE email = $1", [
-      email,
-    ]);
-    if (userCheck.rows.length > 0)
-      return res.status(400).json({ error: "User already exists." });
+    const userCheck = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (userCheck.rows.length > 0) return res.status(400).json({ error: "User already exists." });
 
     const hashedPassword = await bcrypt.hash(password, 12);
     await pool.query(
@@ -42,20 +57,19 @@ app.post("/api/auth/register", async (req, res) => {
 });
 
 // LOGIN
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", authLimiter, async (req, res) => {
   const { email, password } = req.body;
+  
+  // FIXED: Input Validation
+  if (!email || !password) return res.status(400).json({ error: "Email and password are required." });
+
   try {
-    const userResult = await pool.query(
-      "SELECT * FROM users WHERE email = $1",
-      [email]
-    );
-    if (userResult.rows.length === 0)
-      return res.status(401).json({ error: "Invalid credentials." });
+    const userResult = await pool.query("SELECT * FROM users WHERE email = $1", [email]);
+    if (userResult.rows.length === 0) return res.status(401).json({ error: "Invalid credentials." });
 
     const user = userResult.rows[0];
     const validPassword = await bcrypt.compare(password, user.password);
-    if (!validPassword)
-      return res.status(401).json({ error: "Invalid credentials." });
+    if (!validPassword) return res.status(401).json({ error: "Invalid credentials." });
 
     const token = jwt.sign(
       { id: user.id, email: user.email },
@@ -91,10 +105,7 @@ const authenticateToken = (req, res, next) => {
 // GET ALL CLIENTS
 app.get("/api/clients", authenticateToken, async (req, res) => {
   try {
-    const clients = await pool.query(
-      "SELECT * FROM clients WHERE user_id = $1",
-      [req.user.id]
-    );
+    const clients = await pool.query("SELECT * FROM clients WHERE user_id = $1", [req.user.id]);
     res.json(clients.rows);
   } catch (err) {
     res.status(500).json({ error: "Error fetching clients." });
@@ -105,19 +116,14 @@ app.get("/api/clients", authenticateToken, async (req, res) => {
 app.post("/api/clients", authenticateToken, async (req, res) => {
   const { first_name, last_name, email, company_name, billing_address, notes } = req.body;
   
+  // FIXED: Input Validation
+  if (!first_name || !last_name || !email) return res.status(400).json({ error: "First name, last name, and email are required." });
+
   try {
     await pool.query(
       `INSERT INTO clients (user_id, first_name, last_name, email, company_name, billing_address, notes) 
        VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        req.user.id,
-        first_name,
-        last_name,
-        email,
-        company_name,
-        billing_address,
-        notes
-      ]
+      [req.user.id, first_name, last_name, email, company_name, billing_address, notes]
     );
     res.status(201).json({ message: "Client added successfully." });
   } catch (err) {
@@ -130,22 +136,18 @@ app.post("/api/clients", authenticateToken, async (req, res) => {
 app.put("/api/clients/:id", authenticateToken, async (req, res) => {
   const { first_name, last_name, email, company_name, billing_address, notes } = req.body;
   
+  // FIXED: Input Validation
+  if (!first_name || !last_name || !email) return res.status(400).json({ error: "First name, last name, and email are required." });
+
   try {
-    await pool.query(
+    const result = await pool.query(
       `UPDATE clients 
        SET first_name = $1, last_name = $2, email = $3, company_name = $4, billing_address = $5, notes = $6 
        WHERE id = $7 AND user_id = $8`,
-      [
-        first_name,
-        last_name,
-        email,
-        company_name,
-        billing_address,
-        notes,
-        req.params.id,
-        req.user.id
-      ]
+      [first_name, last_name, email, company_name, billing_address, notes, req.params.id, req.user.id]
     );
+    // FIXED: Prevent Silent Success
+    if (result.rowCount === 0) return res.status(404).json({ error: "Client not found or unauthorized." });
     res.json({ message: "Client updated successfully." });
   } catch (err) {
     console.error("Error updating client:", err);
@@ -156,14 +158,17 @@ app.put("/api/clients/:id", authenticateToken, async (req, res) => {
 // DELETE CLIENT
 app.delete("/api/clients/:id", authenticateToken, async (req, res) => {
   try {
-    await pool.query("DELETE FROM clients WHERE id = $1 AND user_id = $2", [
+    await pool.query("DELETE FROM projects WHERE client_id = $1", [req.params.id]);
+
+    const result = await pool.query("DELETE FROM clients WHERE id = $1 AND user_id = $2", [
       req.params.id,
       req.user.id,
     ]);
+    
+    // FIXED: Prevent Silent Success
+    if (result.rowCount === 0) return res.status(404).json({ error: "Client not found or unauthorized." });
 
-    res.json({
-      message: "Client and associated projects deleted successfully.",
-    });
+    res.json({ message: "Client and associated projects deleted successfully." });
   } catch (err) {
     console.error("Delete client error:", err);
     res.status(500).json({ error: "Error deleting client." });
@@ -190,8 +195,14 @@ app.get("/api/projects", authenticateToken, async (req, res) => {
 // ADD NEW PROJECT (POST)
 app.post("/api/projects", authenticateToken, async (req, res) => {
   const { client_id, title, description, status, deadline, total_amount } = req.body;
+  
+  // FIXED: Input Validation
+  if (!client_id || !title || !total_amount) return res.status(400).json({ error: "Client, title, and amount are required." });
+  
+  // FIXED: Date Validation to prevent DB crashes
+  if (deadline && isNaN(Date.parse(deadline))) return res.status(400).json({ error: "Invalid date format." });
+
   try {
-    // Ensure client belongs to authenticated user
     const clientCheck = await pool.query(
       "SELECT id FROM clients WHERE id = $1 AND user_id = $2",
       [client_id, req.user.id]
@@ -215,22 +226,22 @@ app.post("/api/projects", authenticateToken, async (req, res) => {
 
 // EDIT PROJECT (PUT)
 app.put("/api/projects/:id", authenticateToken, async (req, res) => {
-  const { title, description, status, deadline, total_amount } = req.body;
+  // FIXED: Added client_id so it can actually be updated
+  const { client_id, title, description, status, deadline, total_amount } = req.body;
+  
+  if (!title || !total_amount) return res.status(400).json({ error: "Title and amount are required." });
+
   try {
-    await pool.query(
+    const result = await pool.query(
       `UPDATE projects 
-       SET title = $1, description = $2, status = $3, deadline = $4, total_amount = $5 
-       WHERE id = $6 AND client_id IN (SELECT id FROM clients WHERE user_id = $7)`,
-      [
-        title,
-        description,
-        status,
-        deadline,
-        total_amount,
-        req.params.id,
-        req.user.id,
-      ]
+       SET client_id = $1, title = $2, description = $3, status = $4, deadline = $5, total_amount = $6 
+       WHERE id = $7 AND client_id IN (SELECT id FROM clients WHERE user_id = $8)`,
+      [client_id, title, description, status, deadline, total_amount, req.params.id, req.user.id]
     );
+    
+    // FIXED: Prevent Silent Success
+    if (result.rowCount === 0) return res.status(404).json({ error: "Project not found or unauthorized." });
+    
     res.json({ message: "Project updated successfully." });
   } catch (err) {
     console.error(err);
@@ -241,11 +252,15 @@ app.put("/api/projects/:id", authenticateToken, async (req, res) => {
 // DELETE PROJECT
 app.delete("/api/projects/:id", authenticateToken, async (req, res) => {
   try {
-    await pool.query(
+    const result = await pool.query(
       `DELETE FROM projects 
        WHERE id = $1 AND client_id IN (SELECT id FROM clients WHERE user_id = $2)`,
       [req.params.id, req.user.id]
     );
+    
+    // FIXED: Prevent Silent Success
+    if (result.rowCount === 0) return res.status(404).json({ error: "Project not found or unauthorized." });
+    
     res.json({ message: "Project deleted successfully." });
   } catch (err) {
     console.error("Delete project error:", err);
@@ -267,6 +282,9 @@ app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Project not found." });
 
     const project = projectQuery.rows[0];
+    
+    // FIXED: Prevent €NaN if total_amount is somehow null
+    const amount = parseFloat(project.total_amount) || 0;
 
     const fonts = {
       Helvetica: {
@@ -328,13 +346,13 @@ app.get("/api/projects/:id/invoice", authenticateToken, async (req, res) => {
               ],
               [
                 { text: project.title, margin: [5, 10, 5, 10], border: [false, false, false, true] },
-                { text: `€${parseFloat(project.total_amount).toFixed(2)}`, margin: [5, 10, 5, 10], border: [false, false, false, true] },
+                { text: `€${amount.toFixed(2)}`, margin: [5, 10, 5, 10], border: [false, false, false, true] }, // Applied fallback here
               ],
             ],
           },
         },
         {
-          text: `TOTAL DUE: €${parseFloat(project.total_amount).toFixed(2)}`,
+          text: `TOTAL DUE: €${amount.toFixed(2)}`, // Applied fallback here
           bold: true,
           fontSize: 18,
           alignment: "right",
