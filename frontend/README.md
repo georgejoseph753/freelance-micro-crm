@@ -1,70 +1,145 @@
-# Getting Started with Create React App
+# The Freelancer's Micro-CRM
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A lightweight, containerized full-stack web application designed specifically for independent contractors to manage clients, track projects, and automate secure PDF invoice generation.
 
-## Available Scripts
+## 🏗️ System Architecture & Tech Stack
 
-In the project directory, you can run:
+This application is built on a highly decoupled, three-tier microservice architecture:
 
-### `npm start`
+### **Presentation Layer (Frontend)**
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+* React.js (Component-based UI)
+* React Hooks
+* Axios
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+### **Application Layer (Backend)**
 
-### `npm test`
+* Node.js
+* Express.js
+* RESTful API
+* JWT (stateless authentication)
+* bcrypt (cryptographic hashing)
+* pdfmake (server-side PDF generation)
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### **Data Persistence Layer (Database)**
 
-### `npm run build`
+* PostgreSQL
+* Relational schema with:
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+  * Foreign key constraints
+  * UUID-based identifiers
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### **DevOps & Infrastructure**
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+* Docker
+* Docker Compose
 
-### `npm run eject`
+---
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+## 🚀 Prerequisites
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+To ensure platform independence and prevent environmental inconsistencies, this application is fully containerized.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+You **do NOT** need to install Node.js, npm, or PostgreSQL on your host machine.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+### Required:
 
-## Learn More
+* [Docker Desktop / Docker Engine](https://docs.docker.com/get-docker/)
+* [Docker Compose](https://docs.docker.com/compose/install/)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+---
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## 🛠️ Installation & Deployment
 
-### Code Splitting
+Follow these steps to run the full application locally:
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+### 1. Clone the Repository
 
-### Analyzing the Bundle Size
+```bash
+git clone https://github.com/georgejoseph753/freelance-micro-crm.git
+cd freelance-micro-crm
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
+---
 
-### Making a Progressive Web App
+### 2. Configure Environment Variables
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
+Create a `.env` file inside the `backend/` directory:
 
-### Advanced Configuration
+```bash
+backend/.env
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
+Add the following:
 
-### Deployment
+```env
+DATABASE_URL=postgresql://postgres:ernestrutherfordium@db:5432/micro_crm
+JWT_SECRET=super_secret_jwt_key_123
+PORT=5000
+```
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
+---
 
-### `npm run build` fails to minify
+### 3. Build and Run Containers
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+From the project root (where `docker-compose.yml` is located):
+
+```bash
+sudo docker-compose up --build -d
+```
+
+> 💡 **Windows users:** Run without `sudo`
+
+---
+
+### 4. Access the Application
+
+* Frontend:http://localhost:3000
+* Backend API:http://localhost:5000
+
+---
+
+## 🧪 Testing the Application
+
+On first run, the PostgreSQL container automatically executes `schema.sql` to initialize the database.
+
+The database starts empty to demonstrate full isolation.
+
+### Steps to test:
+
+1. Open: [http://localhost:3000](http://localhost:3000)
+2. Register a new user
+3. Log in
+4. Go to **Dashboard**
+5. Create a **Client**
+6. Create a **Project** linked to that client
+7. Mark project as **Completed**
+8. Click **Download Invoice**
+
+### Features demonstrated:
+
+* Secure authentication (JWT + bcrypt)
+* Relational data management
+* Dynamic PDF invoice generation
+
+---
+
+## 🧹 Teardown & Cleanup
+
+### Stop containers:
+
+```bash
+sudo docker-compose down
+```
+
+### Reset database (delete volume):
+
+```bash
+sudo docker-compose down -v
+```
+
+---
+
+## 📄 License & Academic Integrity
+
+This software was developed exclusively for academic evaluation purposes at IU International University of Applied Sciences.
