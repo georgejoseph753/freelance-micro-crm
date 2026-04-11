@@ -94,8 +94,8 @@ sudo docker-compose up --build -d
 
 ### 4. Access the Application
 
-* Frontend:http://localhost:3000
-* Backend API:http://localhost:5000
+* Frontend: http://localhost:3000
+* Backend API: http://localhost:5000
 
 ---
 
