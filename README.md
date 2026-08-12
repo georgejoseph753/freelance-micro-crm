@@ -2,6 +2,25 @@
 
 A lightweight, containerized full-stack web application designed specifically for independent contractors to manage clients, track projects, and automate secure PDF invoice generation.
 
+## 📸 Screenshots
+
+![Dashboard view](screenshots/dashboard.png)
+*Live dashboard showing client, project, and revenue overview*
+
+![Generated invoice PDF](screenshots/invoice.png)
+*Automatically generated PDF invoice*
+
+![Database schema](screenshots/db-schema.png)
+*Relational database schema with foreign keys and UUID identifiers*
+
+![Kanban project board](screenshots/kanban-board.png)
+*Agile Kanban board used to plan and track development*
+
+![Git commit history](screenshots/git-history.png)
+*Version control history showing systematic development*
+
+---
+
 ## 🏗️ System Architecture & Tech Stack
 
 This application is built on a highly decoupled, three-tier microservice architecture:
@@ -25,7 +44,6 @@ This application is built on a highly decoupled, three-tier microservice archite
 
 * PostgreSQL
 * Relational schema with:
-
   * Foreign key constraints
   * UUID-based identifiers
 
@@ -73,8 +91,8 @@ backend/.env
 Add the following:
 
 ```env
-DATABASE_URL=postgresql://postgres:ernestrutherfordium@db:5432/micro_crm
-JWT_SECRET=super_secret_jwt_key_123
+DATABASE_URL=postgresql://postgres:yourpassword@db:5432/micro_crm
+JWT_SECRET=replace_with_your_own_secret_key
 PORT=5000
 ```
 
